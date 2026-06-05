@@ -51,9 +51,18 @@ st.markdown("""
 # ============================================================================
 # CONFIGURATION & PATHS
 # ============================================================================
-DATASET_PATH = r"D:\kuliah\semester_6\stupen\capstone\dataset"
-FINAL_PATH = os.path.join(DATASET_PATH, "dataset_selesai_olah")
-REPORTS_PATH = os.path.join(DATASET_PATH, "reports")
+# Use relative path for deployment compatibility
+BASE_DIR = Path(__file__).parent
+DATASET_PATH = BASE_DIR / "data"  # Relative to script location
+FINAL_PATH = DATASET_PATH / "dataset_selesai_olah"
+REPORTS_PATH = DATASET_PATH / "reports"
+
+# For local testing, also check absolute path if relative doesn't exist
+if not FINAL_PATH.exists():
+    LOCAL_DATASET_PATH = Path(r"D:\kuliah\semester_6\stupen\capstone\dataset")
+    if LOCAL_DATASET_PATH.exists():
+        FINAL_PATH = LOCAL_DATASET_PATH / "dataset_selesai_olah"
+        REPORTS_PATH = LOCAL_DATASET_PATH / "reports"
 
 # Configuration
 TARGET_PER_CLASS = 3000
@@ -305,6 +314,19 @@ for cls in CLASSES:
 # ============================================================================
 stats = load_dataset_stats()
 
+# Check if dataset exists and has data
+if stats['total'] == 0:
+    st.error(
+        "❌ **Dataset tidak ditemukan atau kosong!**\n\n"
+        f"Lokasi yang dicari: `{FINAL_PATH}`\n\n"
+        "**Untuk development lokal:**\n"
+        "- Pastikan folder structure: `data/dataset_selesai_olah/train|val|test/[b3,kaca,kertas,logam,organik,plastik]/`\n\n"
+        "**Untuk Streamlit Cloud:**\n"
+        "- Upload dataset ke repo atau cloud storage\n"
+        "- Update path di halaman settings jika diperlukan"
+    )
+    st.stop()
+
 # ============================================================================
 # PAGE: DASHBOARD UTAMA
 # ============================================================================
@@ -331,7 +353,7 @@ if page == "🏠 Dashboard Utama":
         )
     
     with col3:
-        train_pct = (stats['by_split']['train'] / stats['total']) * 100
+        train_pct = (stats['by_split']['train'] / stats['total'] * 100) if stats['total'] > 0 else 0
         st.metric(
             label="🚂 Training Set",
             value=f"{stats['by_split']['train']:,}",
@@ -417,7 +439,8 @@ elif page == "📊 Analisis Detail":
     
     with col1:
         train_count = stats['by_class'][selected_class]['train']
-        train_pct = (train_count / stats['by_class'][selected_class]['total']) * 100
+        total_count = stats['by_class'][selected_class]['total']
+        train_pct = (train_count / total_count * 100) if total_count > 0 else 0
         st.metric(
             label="🚂 Training",
             value=f"{train_count:,}",
@@ -426,7 +449,8 @@ elif page == "📊 Analisis Detail":
     
     with col2:
         val_count = stats['by_class'][selected_class]['val']
-        val_pct = (val_count / stats['by_class'][selected_class]['total']) * 100
+        total_count = stats['by_class'][selected_class]['total']
+        val_pct = (val_count / total_count * 100) if total_count > 0 else 0
         st.metric(
             label="✔️ Validation",
             value=f"{val_count:,}",
@@ -435,7 +459,8 @@ elif page == "📊 Analisis Detail":
     
     with col3:
         test_count = stats['by_class'][selected_class]['test']
-        test_pct = (test_count / stats['by_class'][selected_class]['total']) * 100
+        total_count = stats['by_class'][selected_class]['total']
+        test_pct = (test_count / total_count * 100) if total_count > 0 else 0
         st.metric(
             label="🧪 Test",
             value=f"{test_count:,}",
@@ -526,7 +551,7 @@ elif page == "📈 Statistik Pipeline":
         )
     
     with col2:
-        avg_per_class = stats['total'] / len(CLASSES)
+        avg_per_class = (stats['total'] / len(CLASSES)) if len(CLASSES) > 0 else 0
         st.metric(
             label="Rata-rata per Kelas",
             value=f"{avg_per_class:,.0f}",
@@ -534,7 +559,10 @@ elif page == "📈 Statistik Pipeline":
         )
     
     with col3:
-        imbalance_ratio = max([stats['by_class'][c]['total'] for c in CLASSES]) / min([stats['by_class'][c]['total'] for c in CLASSES])
+        class_totals = [stats['by_class'][c]['total'] for c in CLASSES]
+        max_total = max(class_totals) if class_totals else 1
+        min_total = min(class_totals) if class_totals else 1
+        imbalance_ratio = max_total / min_total if min_total > 0 else 1.0
         st.metric(
             label="Imbalance Ratio",
             value=f"{imbalance_ratio:.2f}x",
