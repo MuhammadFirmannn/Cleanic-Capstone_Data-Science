@@ -113,6 +113,43 @@ class_meta = {
 # HELPER FUNCTIONS
 # ============================================================================
 
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def get_demo_stats():
+    """Generate demo dataset statistics for preview"""
+    demo_stats = {
+        'by_class': {},
+        'by_split': {'train': 0, 'val': 0, 'test': 0},
+        'total': 0
+    }
+    
+    # Demo data: realistic values
+    demo_distribution = {
+        'b3': {'train': 2400, 'val': 400, 'test': 200},
+        'kaca': {'train': 2850, 'val': 100, 'test': 50},
+        'kertas': {'train': 2950, 'val': 40, 'test': 10},
+        'logam': {'train': 2500, 'val': 400, 'test': 100},
+        'organik': {'train': 2800, 'val': 150, 'test': 50},
+        'plastik': {'train': 2900, 'val': 80, 'test': 20}
+    }
+    
+    for cls, splits in demo_distribution.items():
+        total = sum(splits.values())
+        demo_stats['by_class'][cls] = {
+            'train': splits['train'],
+            'val': splits['val'],
+            'test': splits['test'],
+            'total': total
+        }
+        demo_stats['by_split']['train'] += splits['train']
+        demo_stats['by_split']['val'] += splits['val']
+        demo_stats['by_split']['test'] += splits['test']
+    
+    demo_stats['total'] = sum(demo_stats['by_split'].values())
+    return demo_stats
+
 @st.cache_data
 def load_dataset_stats():
     """Load dataset statistics from files"""
@@ -314,18 +351,24 @@ for cls in CLASSES:
 # ============================================================================
 stats = load_dataset_stats()
 
-# Check if dataset exists and has data
+# Check if dataset exists - if not, use demo mode
 if stats['total'] == 0:
-    st.error(
-        "❌ **Dataset tidak ditemukan atau kosong!**\n\n"
+    st.warning(
+        "⚠️ **Dataset Tidak Ditemukan - Menggunakan Mode Demo**\n\n"
         f"Lokasi yang dicari: `{FINAL_PATH}`\n\n"
-        "**Untuk development lokal:**\n"
-        "- Pastikan folder structure: `data/dataset_selesai_olah/train|val|test/[b3,kaca,kertas,logam,organik,plastik]/`\n\n"
-        "**Untuk Streamlit Cloud:**\n"
-        "- Upload dataset ke repo atau cloud storage\n"
-        "- Update path di halaman settings jika diperlukan"
+        "**Untuk Setup Lokal:**\n"
+        "- Buat folder structure: `data/dataset_selesai_olah/train|val|test/[classes]/`\n"
+        "- Copy gambar ke folder yang sesuai\n"
+        "- Refresh halaman\n\n"
+        "**Saat Ini:**\n"
+        "- Dashboard menampilkan data **DEMO** (nilai realistis)\n"
+        "- Fitur **preview gambar** tidak tersedia\n"
+        "- Semua chart dan statistik menggunakan sample data"
     )
-    st.stop()
+    stats = get_demo_stats()
+    DEMO_MODE = True
+else:
+    DEMO_MODE = False
 
 # ============================================================================
 # PAGE: DASHBOARD UTAMA
@@ -519,17 +562,26 @@ elif page == "🖼️ Data Samples":
     
     st.markdown("---")
     
-    # Display samples
-    images = get_sample_images(selected_class_sample, selected_split, count=6)
-    
-    if images:
-        cols = st.columns(3)
-        for idx, (fname, img) in enumerate(images):
-            with cols[idx % 3]:
-                st.image(img, caption=fname, use_column_width=True)
-                st.caption(f"Size: {img.size[0]}x{img.size[1]}")
+    # Display samples or demo message
+    if DEMO_MODE:
+        st.info(
+            "📌 **Mode Demo - Preview Gambar Tidak Tersedia**\n\n"
+            "Untuk melihat preview gambar nyata:\n"
+            "1. Setup dataset lokal dengan struktur folder yang benar\n"
+            "2. Refresh dashboard\n\n"
+            "Dataset akan ditampilkan otomatis saat tersedia."
+        )
     else:
-        st.warning(f"❌ Tidak ada gambar ditemukan untuk kelas {selected_class_sample} di split {selected_split}")
+        images = get_sample_images(selected_class_sample, selected_split, count=6)
+        
+        if images:
+            cols = st.columns(3)
+            for idx, (fname, img) in enumerate(images):
+                with cols[idx % 3]:
+                    st.image(img, caption=fname, use_column_width=True)
+                    st.caption(f"Size: {img.size[0]}x{img.size[1]}")
+        else:
+            st.warning(f"❌ Tidak ada gambar ditemukan untuk kelas {selected_class_sample} di split {selected_split}")
 
 # ============================================================================
 # PAGE: STATISTIK PIPELINE
